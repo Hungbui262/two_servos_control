@@ -1,97 +1,67 @@
 #include <Arduino.h>
 #include <Servo.h>
-#include <IRremote.hpp>
 
 Servo servo_verticle;
 Servo servo_horizontal;
-const long up = 0xB946FF00;
-const long down =   0xEA15FF00;
-const long CCW =   0xBB44FF00;
-const long CW =  0xBC43FF00;
-const long stop = 0xBF40FF00;
-const long hold =   0x0;
+int feedbackPin = A0;
 
-int IR_RECEIVE_PIN = 12;
-int verticle_pos = 90;
-int horiz_pos;
-int x;
+int horizontal_pos = 0;
+int vertical_pos = 0;
+float angle = 0.0;
+float tHigh = 0;
+float tLow = 0;
+float tCycle = 0;
+float dc = 0;
+float dc_min = 2.9;
+float dc_max = 97.1;
+float errorAngle = 0;
 
-const int cw = 9;
-const int ccw = 8;
-int cw_state, ccw_state;
-
-String movement;
-
+void move(){
+  while(1){
+    tHigh = pulseIn(feedbackPin, HIGH);
+    tLow = pulseIn(feedbackPin, LOW);
+    tCycle = tHigh + tLow;
+    if(tCycle > 1000 && tCycle < 1200){
+      break;
+    }
+  } 
+  
+    dc = (100 * tHigh) /tCycle;
+    angle = ((dc - dc_min) * 360) / (dc_max - dc_min + 1);
+    // Serial.println(angle);
+    if(angle < 0){
+      angle = 0;
+    } else if(angle > 359){
+      angle = 359;
+    }
+    // detect error Angle
+    errorAngle = horizontal_pos - angle;
+    if(errorAngle > 180){
+      errorAngle = errorAngle - 360;
+    } else if(errorAngle < -180){
+      errorAngle = -errorAngle; // hmmm
+    }
+    int val = 90 - errorAngle;
+    servo_horizontal.write(val);
+}
 void setup() {
   Serial.begin(9600);
   servo_verticle.attach(4);
   servo_horizontal.attach(3);
-  IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
-  pinMode(cw, INPUT_PULLUP);
-  pinMode(ccw, INPUT_PULLUP);
+  pinMode(feedbackPin, INPUT);
+  Serial.println("start");
 }
 void loop() {
-// cw_state = digitalRead(cw);
-// ccw_state = digitalRead(ccw);
-// if(cw_state == LOW){
-//   Serial.println("cw push");
-//   servo_horizontal.write(85);
-//   delay(100);
-// }
-// if(ccw_state == LOW){
-//   Serial.println("ccw push");
-//   servo_horizontal.write(100);
-//   delay(100);
-// }else{
-//   servo_horizontal.write(90);
-// }
-
-if (IrReceiver.decode()){
-  long result = IrReceiver.decodedIRData.decodedRawData;
-  Serial.println(result, HEX);
-  switch (result){
-    case CW:
-      movement = "cw";
-      break;
-    case CCW:
-      movement = "ccw";
-      break;
-    case up:
-      movement = "up";
-      break;
-    case down:
-    movement = "down";
-      break;
-
-    case stop:
-      servo_horizontal.write(90);
-      break;
-  case hold:
-    if(movement.equals("up")){
-      verticle_pos = verticle_pos - 20;
-      if(verticle_pos < 0){
-        verticle_pos = 0;
-      }
-      servo_verticle.write(verticle_pos);
-    }
-    else if(movement.equals("down")){
-      verticle_pos = verticle_pos + 20;
-      if(verticle_pos < 0){
-        verticle_pos = 0;
-      }
-      servo_verticle.write(verticle_pos);   
-    }
-    else if(movement.equals("cw")){
-      servo_horizontal.write(85);
-      delay(30);
-    }
-    else if(movement.equals("ccw")){
-      servo_horizontal.write(100);
-      delay(30);
-    }
-  break;
+  if(Serial.available()){
+    String data1 = Serial.readStringUntil('\n');
+    String data2 = Serial.readString();
+    horizontal_pos = data1.toInt();
+    vertical_pos = data2.toInt();
+    Serial.print("horizontal position = ");
+    Serial.println(horizontal_pos);
+    Serial.print("verticle position = ");
+    Serial.println(vertical_pos);
   }
-  servo_horizontal.write(90);
-  IrReceiver.resume();
-}
+  servo_verticle.write(vertical_pos);
+  move();
 }
