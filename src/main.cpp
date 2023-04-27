@@ -6,11 +6,12 @@ Servo servo_horizontal;
 int feedbackPin = A0; // Feedback pin for horizontal servo
 
 int horizontal_pos = 0;
-int vertical_pos = 0;
+int vertical_pos = 145; // set contraint 125 -> 145 -> 165
 /*variables for duty cycle calculation*/
 float angle = 0.0;
 float tHigh = 0;
 float tLow = 0;
+
 float tCycle = 0;
 float dc = 0;
 float dc_min = 2.9; //from datasheet
@@ -58,12 +59,23 @@ void loop() {
     String data1 = Serial.readStringUntil('\n'); // READ  String value for horizontal position (0-359)
     String data2 = Serial.readString(); // HIT ENTER, then READ String value for verticle angle (0 - 180) 
     horizontal_pos = data1.toInt(); // convert String value to INT
+    if(horizontal_pos > 360){
+      horizontal_pos = 360;
+    }else if(horizontal_pos < 0){
+      horizontal_pos = 0;
+    }
     vertical_pos = data2.toInt(); // convert String value to INT
+    if (vertical_pos < -20){
+      vertical_pos = -20;
+    } else if(vertical_pos > 20){
+      vertical_pos = 20;
+    }
     Serial.print("horizontal position = ");
     Serial.println(horizontal_pos);
     Serial.print("verticle position = ");
     Serial.println(vertical_pos);
     Serial.println("--------------");
+    vertical_pos = vertical_pos + 145; // map manually
   }
   servo_verticle.write(vertical_pos); // MOVE SERVO TO VERTICLE POSITION
   horizontal_move(); // CALL FUNCTION HORIZONTAL MOVE, 
